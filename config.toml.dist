@@ -1,0 +1,7 @@
+
+[database]
+directory = "./recs"
+
+
+[git]
+enabled = false
