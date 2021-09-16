@@ -4,17 +4,28 @@ import argparse
 import csv
 import logging
 import os
+import subprocess
 
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from pathlib import Path
-from typing import Dict, Iterable, List, Set
+from typing import Dict, Iterable, List, Set, Tuple
 
 import yacf
 from pretty_tables import PrettyTables
 
-__app__ = "tl"
+
+# app specific constants
 __version__ = (0, 1, 0)
+__app__ = "tl"
+
+# regular constants
+CONFIGS = [
+    '/etc/tl/config.toml',
+    '/etc/tl.toml',
+    './config.toml',
+]
+WRITE_ACCESS = ['reset', 'restart', 'start', 'stop']
 
 
 class IllegalOperation(Exception):
@@ -257,13 +268,16 @@ def format_stats(workdate: date, stats: Dict, timeformat: str = 'H', indentation
 
     rows = [list(x) for x in zip(tags, vals)]
 
+    if not rows:
+        rows.append([None, None])
+
     table = PrettyTables.generate_table(
         headers=['Tag', f'Time ({timeformat})'],
         rows=rows,
         empty_cell_placeholder='-',
     )
 
-    # Add final polishing    
+    # Add final polishing
     title = f"{workdate.isoformat()}"
     underline = "=" * len(title)
     lines = f"\n{title}\n{underline}\n\n{table}\n"
@@ -272,8 +286,6 @@ def format_stats(workdate: date, stats: Dict, timeformat: str = 'H', indentation
     return "\n".join(lines)
 
 
-
-    
 def read_recs(path: str) -> RecordSet:
     """Reads a file and generates a record set from it.
 
@@ -281,7 +293,7 @@ def read_recs(path: str) -> RecordSet:
     :type path: str
     :raises Exception: Issues reading the file, e.g. an invalid line.
     :return: Records of CSV file parsed into a record set.
-    :rtype: [type]
+    :rtype: RecordSet
     """
     recs = []
 
@@ -295,6 +307,37 @@ def read_recs(path: str) -> RecordSet:
             recs.append(rec)
 
     return recs
+
+
+def shell(*args, cwd: str = None) -> Tuple[str, str]:
+    """Performs a shell command and returns the piped STDERR & STDOUT.
+    Args has to be an Iterable[Iterable[str]].
+
+    :return: Tuple of (STDOUT, STDERR)
+    :rtype: Tuple[str, str]
+    """
+    if cwd is None:
+        raise ValueError("shell() requires a working directory.")
+
+    out, err = "", ""
+
+    for arg in args:
+        process = subprocess.run(
+            arg,
+            cwd=cwd,
+            timeout=7,
+            capture_output=True,
+            text=True,
+        )
+        _out, _err = process.stdout, process.stderr
+
+        if _out:
+            out += _out
+
+        if _err:
+            err += _err
+        
+    return out, err
 
 
 def write_recs(recs: Iterable[Iterable], path: str):
@@ -319,9 +362,17 @@ def main():
     log.setLevel(lvl)
     log.addHandler(ch)
 
+    # Loading configuration
     log.debug("Loading configuration...")
-    cfg = yacf.Configuration('./config.toml').load()
-    log.debug("Loaded configuration.")
+
+    _cfg = []
+    for f in CONFIGS:
+        if os.path.isfile(f):
+            _cfg.append(f)
+
+    cfg = yacf.Configuration(*_cfg).load()
+    _cfg = ":".join(_cfg)
+    log.debug(f"Loaded configuration from {_cfg}")
 
     # TODO: Make workdate configurable with a CLI option
     workdate = date.today()
@@ -331,7 +382,18 @@ def main():
         f"{workdate.isoformat()}.csv",
     )
 
-    # TODO: Add git pull
+    has_write = args.cmd[0] in WRITE_ACCESS
+
+    if cfg.get('git.enabled'):
+        log.debug("Trying to pull latest changes from git.")
+        out, err = shell(["git", "pull"], cwd=cfg.get('database.directory'))
+
+        if len(err):
+            log.error("'git pull' piped to STDERR:")
+            list(map(log.error, err.split('\n')))
+        if len(out):
+            log.debug("'git pull' piped to STDOUT:")
+            list(map(log.debug, out.split('\n')))
 
     log.debug(f"Touching {path}...")
     os.makedirs(Path(path).parent, exist_ok=True)
@@ -374,7 +436,7 @@ def main():
         log.debug("Details: ", exc_info=e)
         return
 
-    if cmd in ['reset', 'restart', 'start', 'stop']:
+    if has_write:
         try:
             log.debug("Serializing records...")
             recs = [r.serialize() for r in recs.get_all()]
@@ -387,6 +449,22 @@ def main():
             log.debug("Details: ", exc_info=e)
 
     # TODO: Add git push
+
+    if has_write and cfg.get('git.enabled'):
+        log.debug("Trying to push latest changes to git.")
+        out, err = shell(
+            ['git', 'add', '.'],
+            ['git', 'commit', '-m', 'Autoupdate triggered by tl (https://github.com/resingm/tl-prototype)'],
+            ['git', 'push'],
+            cwd=cfg.get('database.directory'),
+        )
+
+        if len(err):
+            log.error("Committing & pushing changes piped to STDERR:")
+            list(map(log.error, err.split('\n')))
+        if len(out):
+            log.debug("Committing & pushing changes piped to STDOUT:")
+            list(map(log.debug, out.split('\n')))
 
 
 if __name__ == "__main__":
