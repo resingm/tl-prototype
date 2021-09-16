@@ -232,14 +232,18 @@ WARNING: This tool is just a prototype of a rapid development process. The final
 
     return parser
 
-def format_stats(workdate: str, stats: Dict, timeformat: str = 'H') -> str:
-    """Formats statistics for a given date.
+def format_stats(workdate: date, stats: Dict, timeformat: str = 'H', indentation: int = 4) -> str:
+    """Formats statistics accordingly to the given parameters.
 
-    :param workdate: The date from when the statistics are evaluated.
+    :param workdate: Day to be displayed
     :type workdate: date
-    :param stats: Dictionary of statistics per tag.
+    :param stats: Dictionary with statistics per tag.
     :type stats: Dict
-    :return: [description]
+    :param timeformat: Format to print, defaults to 'H'
+    :type timeformat: str, optional
+    :param indentation: Indentation for each line, defaults to 4
+    :type indentation: int, optional
+    :return: Formatted output that can be printed or written to file.
     :rtype: str
     """
     tags = list(stats.keys())
@@ -259,9 +263,15 @@ def format_stats(workdate: str, stats: Dict, timeformat: str = 'H') -> str:
         empty_cell_placeholder='-',
     )
 
+    # Add final polishing    
     title = f"{workdate.isoformat()}"
     underline = "=" * len(title)
-    return f"{title}\n{underline}\n\n{table}"
+    lines = f"\n{title}\n{underline}\n\n{table}\n"
+    lines = lines.split("\n")
+    lines = map(lambda x: (" " * indentation) + x, lines)
+    return "\n".join(lines)
+
+
 
     
 def read_recs(path: str) -> RecordSet:
@@ -350,7 +360,8 @@ def main():
             #         * output format (hours, minutes)
             stats = recs.generate_stats()
             output = format_stats(workdate, stats)
-            log.info(output)
+            #log.info(output)
+            print(output)
 
         elif cmd == "stop":
             recs.stop_rec()
