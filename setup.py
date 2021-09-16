@@ -51,7 +51,7 @@ def main():
 
     setuptools.setup(
         version='.'.join(map, tl.__version__),
-        name='timelog',
+        name='time_log',
         license='GPL-3.0',
         description='tl - Time logging/tracking utility for the command line',
         long_description=descr,
@@ -65,7 +65,7 @@ def main():
         packages=PACKAGES,
         entry_points={
             'console_scripts': [
-                'tl=timelog:main',
+                'tl=time_log:main',
             ]
         },
         classifiers=CLASSIFIERS,

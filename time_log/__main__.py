@@ -336,7 +336,7 @@ def shell(*args, cwd: str = None) -> Tuple[str, str]:
 
         if _err:
             err += _err
-        
+
     return out, err
 
 

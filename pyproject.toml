@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "timelog"
+name = "time_log"
 version = "0.1.0"
 description = "Prototype for a time tracker/logger command line utility"
 authors = ["Max Resing <max.resing@protonmail.com>"]
