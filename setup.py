@@ -8,7 +8,7 @@ the name `timelog`. It will install an excutable `tl`.
 Simply call `python setup.py sdist upload`
 """
 
-import tl
+import time_log
 import setuptools
 
 FILE_ENCODING = "utf-8"
@@ -50,7 +50,7 @@ def main():
     descr = build_descr()
 
     setuptools.setup(
-        version='.'.join(map, tl.__version__),
+        version='.'.join(map(str, time_log.__version__)),
         name='time_log',
         license='GPL-3.0',
         description='tl - Time logging/tracking utility for the command line',
