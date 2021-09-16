@@ -6,21 +6,27 @@ import logging
 import os
 
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
-from typing import List
+from typing import Dict, Iterable, List, Set
 
 import yacf
+from pretty_tables import PrettyTables
 
 __app__ = "tl"
 __version__ = (0, 1, 0)
+
+
+class IllegalOperation(Exception):
+    def __init__(self, message):
+        self.message = message
 
 
 @dataclass
 class Record:
     ts_start: datetime
     ts_stop: datetime = None
-    tags: str = "default"
+    tags: Set = None
 
     @property
     def duration(self) -> int:
@@ -53,11 +59,15 @@ class Record:
         :return: Record parsed from the values.
         :rtype: Record
         """
-        assert len(args == 3)
+        if len(args) != 3:
+            vals = ", ".join(args)
+            raise Exception(f"Cannot deserialize the values [{vals}] to a Record.")
+
+        x, y, z = float(args[0]), float(args[1]), args[2].split(' ')
         return Record(
-            datetime.fromtimestamp(args[0]),
-            datetime.fromtimestamp(args[1]),
-            ",".join(args[2].split(" ")),
+            datetime.fromtimestamp(x),
+            datetime.fromtimestamp(y),
+            set(z),
         )
 
     def serialize(self) -> tuple:
@@ -72,7 +82,7 @@ class Record:
         return (
             self.ts_start.timestamp(),
             self.ts_stop.timestamp(),
-            " ".join(set(self.tags.split(","))),
+            " ".join(self.tags),
         )
 
 
@@ -87,6 +97,10 @@ class RecordSet:
         self._recs = recs
         self._marker = len(recs)
 
+        self._tags = []
+        [self._tags.extend(r.tags) for r in self._recs]
+        self._tags = set(self._tags)
+
     def __str__(self) -> str:
         status = "closed" if self.closed else "open"
         return f"RecordSet[len={len(self._recs)}] <{status}>"
@@ -98,11 +112,35 @@ class RecordSet:
         :return: Last record is closed
         :rtype: bool
         """
-        return self._recs[-1].closed
+        return self.empty or self._recs[-1].closed
+
+    @property
+    def empty(self) -> bool:
+        """Indicates whether the record set is empty.
+
+        :return: true, if no records in the set, otherwise false
+        :rtype: bool
+        """
+        return len(self._recs) == 0
 
     @property
     def size(self) -> int:
         return len(self._recs)
+
+    def generate_stats(self) -> Dict:
+        """Generates a dictionary and sums up the durations per tag.
+
+        :return: Dict, with tags as keys and durations as values
+        :rtype: Dict
+        """
+        summary = {}
+
+        for t in self._tags:
+            recs = list(filter(lambda x: t in x.tags, self._recs))
+            recs = map(lambda x: x.duration, recs)
+            summary[t] = sum(recs)
+
+        return summary
 
     def get_all(self):
         return self._recs
@@ -114,19 +152,20 @@ class RecordSet:
         """Resets the currently open record and deletes it. The open record
         will be deleted from the set.
         """
-        assert not self.closed
+        if self.closed:
+            raise IllegalOperation("Can not reset record. Current record is closed.")
+
         self._recs.pop()
 
     def restart_rec(self):
         """Restarts the current record. This means, the currently open records
         start time will be updated to the current timestamp.
         """
-        assert not self.closed
         tags = self._recs[-1].tags
         self.reset_rec()
         self.start_rec(tags)
 
-    def start_rec(self, tags: str):
+    def start_rec(self, tags: Set):
         """Adds a new open record to the recording. Can just add a new record
         to the set if it is closed, meaning
             recs[-1].ts_stop == recs[-1].ts_start
@@ -134,17 +173,20 @@ class RecordSet:
         :param tags: Tags of the new record
         :type tags: str
         """
-        assert self.closed
+        if not self.closed:
+            raise IllegalOperation("Cannot open a new record. Current record is open.")
 
-        ts = datetime.now().timestamp()
+        ts = datetime.now()
         self._recs.append(Record(ts, ts, tags))
+        self._tags |= tags
 
     def stop_rec(self):
         """Closes the currently open record.
         """
+        if self.closed:
+            raise IllegalOperation("Cannot close record. Current record is open.")
 
-        assert not self.closed
-        self._recs[-1].ts_stop = datetime.now().timestamp()
+        self._recs[-1].ts_stop = datetime.now()
 
 
 def version():
@@ -177,7 +219,7 @@ WARNING: This tool is just a prototype of a rapid development process. The final
     parser.add_argument(
         "cmd",
         nargs=1,
-        choices=["start", "stop", "reset", "restart"],
+        choices=["start", "stats", "stop", "reset", "restart"],
         help="Start or close a time recording",
     )
 
@@ -185,12 +227,43 @@ WARNING: This tool is just a prototype of a rapid development process. The final
         "-t",
         "--tags",
         nargs="+",
-        default="default",
+        default=[],
     )
 
     return parser
 
+def format_stats(workdate: str, stats: Dict, timeformat: str = 'H') -> str:
+    """Formats statistics for a given date.
 
+    :param workdate: The date from when the statistics are evaluated.
+    :type workdate: date
+    :param stats: Dictionary of statistics per tag.
+    :type stats: Dict
+    :return: [description]
+    :rtype: str
+    """
+    tags = list(stats.keys())
+    tags.sort()
+    vals = []
+
+    for t in tags:
+        v = timedelta(seconds=stats[t])
+        v = v.seconds / (3600)
+        vals.append(round(v, 2))
+
+    rows = [list(x) for x in zip(tags, vals)]
+
+    table = PrettyTables.generate_table(
+        headers=['Tag', f'Time ({timeformat})'],
+        rows=rows,
+        empty_cell_placeholder='-',
+    )
+
+    title = f"{workdate.isoformat()}"
+    underline = "=" * len(title)
+    return f"{title}\n{underline}\n\n{table}"
+
+    
 def read_recs(path: str) -> RecordSet:
     """Reads a file and generates a record set from it.
 
@@ -214,14 +287,10 @@ def read_recs(path: str) -> RecordSet:
     return recs
 
 
-def write_recs(recs: RecordSet, path: str):
-    recs = []
-
-    with open(path, newline='') as f:
+def write_recs(recs: Iterable[Iterable], path: str):
+    with open(path, 'w', newline='') as f:
         writer = csv.writer(f, delimiter=',')
-
-        rs = [r.serialize() for r in recs.get_all()]
-        writer.writerows(rs)
+        writer.writerows(recs)
 
 
 def main():
@@ -244,9 +313,12 @@ def main():
     cfg = yacf.Configuration('./config.toml').load()
     log.debug("Loaded configuration.")
 
+    # TODO: Make workdate configurable with a CLI option
+    workdate = date.today()
+
     path = os.path.join(
         cfg.get('database.directory'),
-        f"{date.today().isoformat()}.csv",
+        f"{workdate.isoformat()}.csv",
     )
 
     # TODO: Add git pull
@@ -268,27 +340,42 @@ def main():
         elif cmd == "restart":
             recs.restart_rec()
         elif cmd == "start":
-            tags = args.tags
-            recs.start_rec()
+            if not args.tags:
+                tags = {'default'}
+            else:
+                tags = set(args.tags[0].split(','))
+            recs.start_rec(tags)
+        elif cmd == "stats":
+            # TODO: Add more options, e.g:
+            #         * output format (hours, minutes)
+            stats = recs.generate_stats()
+            output = format_stats(workdate, stats)
+            log.info(output)
+
         elif cmd == "stop":
             recs.stop_rec()
         else:
             raise ValueError(f"Unknown command '{cmd}'")
-    except Exception as e:
+
+        log.debug("Successfully executed command")
+    except IllegalOperation as e:
         log.error(f"Illegal command: {str(e)}")
         log.debug("Details: ", exc_info=e)
         return
 
-    try:
-        write_recs(recs, path)
-    except Exception as e:
-        log.error("Failed to write to file.")
-        log.debug("Details: ", exc_info=e)
-
+    if cmd in ['reset', 'restart', 'start', 'stop']:
+        try:
+            log.debug("Serializing records...")
+            recs = [r.serialize() for r in recs.get_all()]
+            log.debug(f"Serialized {len(recs)} records.")
+            log.debug("Writing records to file.")
+            write_recs(recs, path)
+            log.debug("Successfully wrote records to file.")
+        except Exception as e:
+            log.error("Failed to write to file.")
+            log.debug("Details: ", exc_info=e)
 
     # TODO: Add git push
-
-
 
 
 if __name__ == "__main__":

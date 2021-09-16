@@ -108,6 +108,17 @@ docs = ["Sphinx (>=4)", "furo (>=2021.7.5b38)", "proselint (>=0.10.2)", "sphinx-
 test = ["appdirs (==1.4.4)", "pytest (>=6)", "pytest-cov (>=2.7)", "pytest-mock (>=3.6)"]
 
 [[package]]
+name = "pretty-tables"
+version = "1.3.0"
+description = "Create pretty tables from headers and rows, perfect for console output."
+category = "main"
+optional = false
+python-versions = ">=3.7"
+
+[package.extras]
+dev = ["coveralls (>=3.0.0,<4.0.0)", "flake8", "pytest (>=6.0.0,<7.0.0)", "pytest-cov (>=2.0.0,<3.0.0)"]
+
+[[package]]
 name = "pycodestyle"
 version = "2.7.0"
 description = "Python style guide checker"
@@ -169,7 +180,7 @@ toml = "*"
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.9"
-content-hash = "2ee54d304c4dfcf46963f5c38c06a702f581598a731e2504b0257477440537b7"
+content-hash = "d8407ee0f6cf54e56a673cf6b51596fba5beb5a0a6f8f03f352f46b37af47608"
 
 [metadata.files]
 black = [
@@ -207,6 +218,10 @@ pathspec = [
 platformdirs = [
     {file = "platformdirs-2.3.0-py3-none-any.whl", hash = "sha256:8003ac87717ae2c7ee1ea5a84a1a61e87f3fbd16eb5aadba194ea30a9019f648"},
     {file = "platformdirs-2.3.0.tar.gz", hash = "sha256:15b056538719b1c94bdaccb29e5f81879c7f7f0f4a153f46086d155dffcd4f0f"},
+]
+pretty-tables = [
+    {file = "pretty-tables-1.3.0.tar.gz", hash = "sha256:45a462a4a7d555a2bcf618389464ab4af0463fd020198e20bf0585b6d257da8b"},
+    {file = "pretty_tables-1.3.0-py3-none-any.whl", hash = "sha256:3d1bac09366bf50c2bb974d83c53f3be075e786a265d421ed85c3fa4eba16ac1"},
 ]
 pycodestyle = [
     {file = "pycodestyle-2.7.0-py2.py3-none-any.whl", hash = "sha256:514f76d918fcc0b55c6680472f0a37970994e07bbb80725808c17089be302068"},
