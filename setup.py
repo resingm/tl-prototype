@@ -65,7 +65,7 @@ def main():
         packages=PACKAGES,
         entry_points={
             'console_scripts': [
-                'tl=tl:main',
+                'tl=timelog:main',
             ]
         },
         classifiers=CLASSIFIERS,
