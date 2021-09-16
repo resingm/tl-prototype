@@ -64,9 +64,7 @@ def main():
         python_requres=PYTHON_REQUIRES,
         packages=PACKAGES,
         entry_points={
-            'console_scripts': [
-                'tl=time_log:main',
-            ]
+            'console_scripts': ['tl=time_log:main'],
         },
         classifiers=CLASSIFIERS,
     )
