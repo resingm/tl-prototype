@@ -19,19 +19,61 @@ __version__ = (0, 1, 0)
 @dataclass
 class Record:
     ts_start: datetime
-    ts_end: datetime = None
+    ts_stop: datetime = None
     tags: str = "default"
 
+    @property
     def duration(self) -> int:
         """Calculates the duration in seconds and returns it.
 
         :return: Duration in seconds
         :rtype: int
         """
-        if self.ts_end is None:
+        if self.ts_stop is None:
             return 0
 
-        return (self.ts_end - self.ts_start).total_seconds
+        return (self.ts_stop - self.ts_start).total_seconds()
+
+    @property
+    def closed(self) -> bool:
+        """Defines weather the last record is closed or not.
+
+        :return: Is record closed?
+        :rtype: bool
+        """
+        return not any([
+            self.ts_stop is None,
+            self.ts_start == self.ts_stop,
+        ])
+
+    @staticmethod
+    def deserialize(*args) -> "Record":
+        """Deserializes some data fields into a record.
+
+        :return: Record parsed from the values.
+        :rtype: Record
+        """
+        assert len(args == 3)
+        return Record(
+            datetime.fromtimestamp(args[0]),
+            datetime.fromtimestamp(args[1]),
+            ",".join(args[2].split(" ")),
+        )
+
+    def serialize(self) -> tuple:
+        """Serializes the data into an iterable that has the data format used
+        to write it to a file.
+
+        :raises Exception: [description]
+        :raises ValueError: [description]
+        :return: [description]
+        :rtype: tuple
+        """
+        return (
+            self.ts_start.timestamp(),
+            self.ts_stop.timestamp(),
+            " ".join(set(self.tags.split(","))),
+        )
 
 
 class RecordSet:
@@ -45,6 +87,10 @@ class RecordSet:
         self._recs = recs
         self._marker = len(recs)
 
+    def __str__(self) -> str:
+        status = "closed" if self.closed else "open"
+        return f"RecordSet[len={len(self._recs)}] <{status}>"
+
     @property
     def closed(self) -> bool:
         """Indicates weather the record set is closed.
@@ -52,20 +98,53 @@ class RecordSet:
         :return: Last record is closed
         :rtype: bool
         """
-        return self._recs[-1].ts_end is not None
+        return self._recs[-1].closed
 
-    def add(self, rec: Record):
-        """Adds a new record to the record set. Can just add a new record to the
-        set if it is closed, meaning, the last record has an ts_end.
+    @property
+    def size(self) -> int:
+        return len(self._recs)
 
-        :param rec: To be added record
-        :type rec: Record
+    def get_all(self):
+        return self._recs
+
+    def get_new(self):
+        return self._recs[self._marker:]
+
+    def reset_rec(self):
+        """Resets the currently open record and deletes it. The open record
+        will be deleted from the set.
+        """
+        assert not self.closed
+        self._recs.pop()
+
+    def restart_rec(self):
+        """Restarts the current record. This means, the currently open records
+        start time will be updated to the current timestamp.
+        """
+        assert not self.closed
+        tags = self._recs[-1].tags
+        self.reset_rec()
+        self.start_rec(tags)
+
+    def start_rec(self, tags: str):
+        """Adds a new open record to the recording. Can just add a new record
+        to the set if it is closed, meaning
+            recs[-1].ts_stop == recs[-1].ts_start
+
+        :param tags: Tags of the new record
+        :type tags: str
         """
         assert self.closed
-        self._recs.append(rec)
 
-    def new_recs(self):
-        return self._recs[self._marker:]
+        ts = datetime.now().timestamp()
+        self._recs.append(Record(ts, ts, tags))
+
+    def stop_rec(self):
+        """Closes the currently open record.
+        """
+
+        assert not self.closed
+        self._recs[-1].ts_stop = datetime.now().timestamp()
 
 
 def version():
@@ -98,7 +177,7 @@ WARNING: This tool is just a prototype of a rapid development process. The final
     parser.add_argument(
         "cmd",
         nargs=1,
-        choices=["start", "stop"],
+        choices=["start", "stop", "reset", "restart"],
         help="Start or close a time recording",
     )
 
@@ -108,12 +187,42 @@ WARNING: This tool is just a prototype of a rapid development process. The final
         nargs="+",
         default="default",
     )
-    
+
     return parser
 
 
-def load_recs(path):
-    pass
+def read_recs(path: str) -> RecordSet:
+    """Reads a file and generates a record set from it.
+
+    :param path: File path
+    :type path: str
+    :raises Exception: Issues reading the file, e.g. an invalid line.
+    :return: Records of CSV file parsed into a record set.
+    :rtype: [type]
+    """
+    recs = []
+
+    with open(path, newline='') as f:
+        reader = csv.reader(f, delimiter=',')
+        for r in reader:
+            if not len(r) == 3:
+                raise Exception(f"Invalid record in line {reader.line_num}.")
+
+            rec = Record.deserialize(*r)
+            recs.append(rec)
+
+    return recs
+
+
+def write_recs(recs: RecordSet, path: str):
+    recs = []
+
+    with open(path, newline='') as f:
+        writer = csv.writer(f, delimiter=',')
+
+        rs = [r.serialize() for r in recs.get_all()]
+        writer.writerows(rs)
+
 
 def main():
 
@@ -135,17 +244,49 @@ def main():
     cfg = yacf.Configuration('./config.toml').load()
     log.debug("Loaded configuration.")
 
-    year, month, day = date.today().year, date.today().month, date.today().day
-    fname = os.path.join(cfg.get('database.directory'), f"{year}-{month}-{day}.csv")
+    path = os.path.join(
+        cfg.get('database.directory'),
+        f"{date.today().isoformat()}.csv",
+    )
 
-    log.debug(f"Touching {fname}...")
-    os.makedirs(Path(fname).parent)
-    Path(fname).touch(exist_ok=True)
-    log.debug(f"Touched {fname}")
+    # TODO: Add git pull
+
+    log.debug(f"Touching {path}...")
+    os.makedirs(Path(path).parent, exist_ok=True)
+    Path(path).touch(exist_ok=True)
+    log.debug(f"Touched {path}")
 
     log.debug("Loading file...")
-    recs = load_recs(fname)
-    log.debug("Loaded file.")
+    recs = RecordSet(read_recs(path))
+    log.debug(f"Loaded {recs.size} records from file.")
+
+    try:
+        cmd = args.cmd[0]
+
+        if cmd == "reset":
+            recs.reset_rec()
+        elif cmd == "restart":
+            recs.restart_rec()
+        elif cmd == "start":
+            tags = args.tags
+            recs.start_rec()
+        elif cmd == "stop":
+            recs.stop_rec()
+        else:
+            raise ValueError(f"Unknown command '{cmd}'")
+    except Exception as e:
+        log.error(f"Illegal command: {str(e)}")
+        log.debug("Details: ", exc_info=e)
+        return
+
+    try:
+        write_recs(recs, path)
+    except Exception as e:
+        log.error("Failed to write to file.")
+        log.debug("Details: ", exc_info=e)
+
+
+    # TODO: Add git push
 
 
 
