@@ -241,6 +241,11 @@ WARNING: This tool is just a prototype of a rapid development process. The final
         default=[],
     )
 
+    parser.add_argument(
+        "--git",
+        action=argparse.BooleanOptionalAction,
+    )
+
     return parser
 
 def format_stats(workdate: date, stats: Dict, timeformat: str = 'H', indentation: int = 4) -> str:
@@ -370,9 +375,14 @@ def main():
         if os.path.isfile(f):
             _cfg.append(f)
 
-    cfg = yacf.Configuration(*_cfg).load()
+    cfg = yacf.Configuration(*_cfg).load().dict()
     _cfg = ":".join(_cfg)
     log.debug(f"Loaded configuration from {_cfg}")
+
+    # postprocess configuration to include CLI options
+    if args.git is not None:
+        # TODO: Use yacf.configuration.set() as soon as it is available
+        cfg.get('git', {})['enabled'] = args.git
 
     # TODO: Make workdate configurable with a CLI option
     workdate = date.today()
