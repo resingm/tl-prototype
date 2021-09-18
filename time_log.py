@@ -16,7 +16,7 @@ from pretty_tables import PrettyTables
 
 
 # app specific constants
-__version__ = (0, 1, 2)
+__version__ = (0, 1, 3)
 __app__ = "tl"
 
 # regular constants
@@ -235,6 +235,15 @@ WARNING: This tool is just a prototype of a rapid development process. The final
     )
 
     parser.add_argument(
+        '-d',
+        '--date',
+        nargs='?',
+        type=date.fromisoformat,
+        help="Define a workdate (Format: YYYY-MM-DD)",
+        default=date.fromisoformat(date.today().isoformat()),
+    )
+
+    parser.add_argument(
         "-t",
         "--tags",
         nargs="+",
@@ -262,6 +271,7 @@ def format_stats(workdate: date, stats: Dict, timeformat: str = 'H', indentation
     :return: Formatted output that can be printed or written to file.
     :rtype: str
     """
+    # Highlight active recordings in the table.
     tags = list(stats.keys())
     tags.sort()
     vals = []
@@ -385,7 +395,8 @@ def main():
         cfg.get('git', {})['enabled'] = args.git
 
     # TODO: Make workdate configurable with a CLI option
-    workdate = date.today()
+    #workdate = date.today()
+    workdate = args.date
 
     path = os.path.join(
         cfg.get('database.directory'),
