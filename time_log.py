@@ -16,7 +16,7 @@ from pretty_tables import PrettyTables
 
 
 # app specific constants
-__version__ = (0, 1, 3)
+__version__ = (0, 1, 4)
 __app__ = "tl"
 
 # regular constants
@@ -257,6 +257,7 @@ WARNING: This tool is just a prototype of a rapid development process. The final
 
     return parser
 
+
 def format_stats(workdate: date, stats: Dict, timeformat: str = 'H', indentation: int = 4) -> str:
     """Formats statistics accordingly to the given parameters.
 
@@ -392,10 +393,11 @@ def main():
     # postprocess configuration to include CLI options
     if args.git is not None:
         # TODO: Use yacf.configuration.set() as soon as it is available
-        cfg.get('git', {})['enabled'] = args.git
+        # cfg.get('git', {})['enabled'] = args.git
+        cfg['git.enabled'] = args.git
 
     # TODO: Make workdate configurable with a CLI option
-    #workdate = date.today()
+    # workdate = date.today()
     workdate = args.date
 
     path = os.path.join(
@@ -443,8 +445,8 @@ def main():
             #         * output format (hours, minutes)
             stats = recs.generate_stats()
             output = format_stats(workdate, stats)
-            #log.info(output)
-            print(output)
+            log.info(f"\n{output}")
+            # print(output)
 
         elif cmd == "stop":
             recs.stop_rec()
