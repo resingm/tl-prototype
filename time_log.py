@@ -9,7 +9,7 @@ import subprocess
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from pathlib import Path
-from typing import Dict, Iterable, List, Set, Tuple
+from typing import Dict, Iterable, List, Set, Tuple, Type
 
 import yacf
 from pretty_tables import PrettyTables
@@ -230,7 +230,7 @@ WARNING: This tool is just a prototype of a rapid development process. The final
     parser.add_argument(
         "cmd",
         nargs=1,
-        choices=["start", "stats", "stop", "reset", "restart"],
+        choices=["add", "start", "stats", "stop", "reset", "restart"],
         help="Start or close a time recording",
     )
 
@@ -325,6 +325,37 @@ def read_recs(path: str) -> RecordSet:
     return recs
 
 
+def read_input(msg: str, read_as: Type = str) -> Any:
+    """Prints a question and requests some user input. If a 'read_as' type is
+    defined, it tries to parse the value into the type and repeatedly asks for
+    input, if the input is invalid.
+
+    :param msg: Message to be prompted to the user
+    :type msg: str
+    :return: Parsed input
+    :rtype: Any
+    """
+    msg = msg.strip(' ')
+
+    if not msg[-1] in [':', '?']:
+        msg += ':'
+
+    parsed = None
+    while parsed is None:
+        # TODO: implement read_input...
+
+        inp = input(msg)
+
+            try:
+                if isinstance(read_as, callable):
+                    parsed = read_as.__call__()
+            except Exception as e:
+                print(f"Input can not be parsed to '{read_as}'")
+    
+    return parsed
+    
+
+
 def shell(*args, cwd: str = None) -> Tuple[str, str]:
     """Performs a shell command and returns the piped STDERR & STDOUT.
     Args has to be an Iterable[Iterable[str]].
@@ -396,8 +427,6 @@ def main():
         # cfg.get('git', {})['enabled'] = args.git
         cfg['git.enabled'] = args.git
 
-    # TODO: Make workdate configurable with a CLI option
-    # workdate = date.today()
     workdate = args.date
 
     path = os.path.join(
@@ -430,7 +459,9 @@ def main():
     try:
         cmd = args.cmd[0]
 
-        if cmd == "reset":
+        if cmd == "add":
+            pass
+        elif cmd == "reset":
             recs.reset_rec()
         elif cmd == "restart":
             recs.restart_rec()
@@ -470,8 +501,6 @@ def main():
         except Exception as e:
             log.error("Failed to write to file.")
             log.debug("Details: ", exc_info=e)
-
-    # TODO: Add git push
 
     if has_write and cfg.get('git.enabled'):
         log.debug("Trying to push latest changes to git.")
