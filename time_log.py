@@ -9,7 +9,7 @@ import subprocess
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from pathlib import Path
-from typing import Dict, Iterable, List, Set, Tuple, Type
+from typing import Callable, Dict, Iterable, List, Set, Tuple
 
 import yacf
 from pretty_tables import PrettyTables
@@ -25,7 +25,9 @@ CONFIGS = [
     '/etc/tl.toml',
     './config.toml',
 ]
-WRITE_ACCESS = ['reset', 'restart', 'start', 'stop']
+
+READ_ACCESS = ['stats']
+WRITE_ACCESS = ['add', 'reset', 'restart', 'start', 'stop']
 
 
 class IllegalOperation(Exception):
@@ -138,6 +140,24 @@ class RecordSet:
     def size(self) -> int:
         return len(self._recs)
 
+    def add_rec(self, _from: datetime, _to: datetime, tags: Set):
+        """Appends a new record to the record set. Swaps with the last element
+        if this is open.
+
+        :param _from: Start time of the record
+        :type _from: datetime
+        :param _to: End time of the record
+        :type _to: datetime
+        """
+        rec = Record(_from, _to, tags)
+
+        if not self.closed:
+            curr = self._recs.pop()
+            self._recs.append(rec)
+            self._recs.append(curr)
+        else:
+            self._recs.append(rec)
+
     def generate_stats(self) -> Dict:
         """Generates a dictionary and sums up the durations per tag.
 
@@ -230,7 +250,7 @@ WARNING: This tool is just a prototype of a rapid development process. The final
     parser.add_argument(
         "cmd",
         nargs=1,
-        choices=["add", "start", "stats", "stop", "reset", "restart"],
+        choices=READ_ACCESS + WRITE_ACCESS,
         help="Start or close a time recording",
     )
 
@@ -253,6 +273,22 @@ WARNING: This tool is just a prototype of a rapid development process. The final
     parser.add_argument(
         "--git",
         action=argparse.BooleanOptionalAction,
+    )
+
+    # TODO: Consider using a subparser for the different commands, especially the <add> command
+    #       https://docs.python.org/3/library/argparse.html?highlight=argparse#argparse.ArgumentParser.add_subparsers
+    parser.add_argument(
+        "--from",
+        type=datetime.fromisoformat,
+        help="Defines the start time when using the <add> command",
+        dest="_from",
+    )
+
+    parser.add_argument(
+        "--to",
+        type=datetime.fromisoformat,
+        help="Defines the end time when using the <add> command",
+        dest="_to",
     )
 
     return parser
@@ -325,13 +361,15 @@ def read_recs(path: str) -> RecordSet:
     return recs
 
 
-def read_input(msg: str, read_as: Type = str) -> Any:
+def read_input(msg: str, of_type: Callable = str) -> Any:
     """Prints a question and requests some user input. If a 'read_as' type is
     defined, it tries to parse the value into the type and repeatedly asks for
     input, if the input is invalid.
 
     :param msg: Message to be prompted to the user
     :type msg: str
+    :param of_type: Function to be used to parse user input, defaults to str
+    :type of_type: Callable, optional
     :return: Parsed input
     :rtype: Any
     """
@@ -340,20 +378,17 @@ def read_input(msg: str, read_as: Type = str) -> Any:
     if not msg[-1] in [':', '?']:
         msg += ':'
 
-    parsed = None
-    while parsed is None:
-        # TODO: implement read_input...
+    inp = None
 
-        inp = input(msg)
+    while inp is None:
+        try:
+            inp = input(msg)
+            inp = of_type(inp)
+        except Exception:
+            print(f"Invalid input. Please enter a valid '{of_type.__name__}'")
+            inp = None
 
-            try:
-                if isinstance(read_as, callable):
-                    parsed = read_as.__call__()
-            except Exception as e:
-                print(f"Input can not be parsed to '{read_as}'")
-    
-    return parsed
-    
+    return inp
 
 
 def shell(*args, cwd: str = None) -> Tuple[str, str]:
@@ -458,18 +493,27 @@ def main():
 
     try:
         cmd = args.cmd[0]
+        
+        # Parse tags:
+        tags = {'default'} if args.tags is None else set(args.tags[0].split(','))
 
         if cmd == "add":
-            pass
+            _from = args._from
+            _to = args._to
+
+            if _from is None or _to is None:
+                log.error("Missing arguments for the options --from and --to. Exiting...")
+            else:
+                recs.add_rec(_from, _to, tags)
         elif cmd == "reset":
             recs.reset_rec()
         elif cmd == "restart":
             recs.restart_rec()
         elif cmd == "start":
-            if not args.tags:
-                tags = {'default'}
-            else:
-                tags = set(args.tags[0].split(','))
+            #if not args.tags:
+            #    tags = {'default'}
+            #else:
+            #    tags = set(args.tags[0].split(','))
             recs.start_rec(tags)
         elif cmd == "stats":
             # TODO: Add more options, e.g:
