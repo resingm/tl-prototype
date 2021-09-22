@@ -7,7 +7,7 @@ import os
 import subprocess
 
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time, timedelta
 from pathlib import Path
 from typing import Any, Callable, Dict, Iterable, List, Set, Tuple
 
@@ -259,7 +259,7 @@ WARNING: This tool is just a prototype of a rapid development process. The final
         '--date',
         nargs='?',
         type=date.fromisoformat,
-        help="Define a workdate (Format: YYYY-MM-DD)",
+        help="Define a workdate, in YYYY-MM-DD)",
         default=date.fromisoformat(date.today().isoformat()),
     )
 
@@ -279,15 +279,15 @@ WARNING: This tool is just a prototype of a rapid development process. The final
     #       https://docs.python.org/3/library/argparse.html?highlight=argparse#argparse.ArgumentParser.add_subparsers
     parser.add_argument(
         "--from",
-        type=datetime.fromisoformat,
-        help="Defines the start time when using the <add> command",
+        type=time.fromisoformat,
+        help="Defines the start time when using the <add> command, in HH[:MM[:SS]]",
         dest="_from",
     )
 
     parser.add_argument(
         "--to",
-        type=datetime.fromisoformat,
-        help="Defines the end time when using the <add> command",
+        type=time.fromisoformat,
+        help="Defines the end time when using the <add> command, in HH[:MM[:SS]]",
         dest="_to",
     )
 
@@ -498,8 +498,8 @@ def main():
         tags = {'default'} if args.tags is None else set(args.tags[0].split(','))
 
         if cmd == "add":
-            _from = args._from
-            _to = args._to
+            _from = datetime.combine(workdate, args._from)
+            _to = datetime.combine(workdate, args._to)
 
             if _from is None or _to is None:
                 log.error("Missing arguments for the options --from and --to. Exiting...")
