@@ -16,7 +16,7 @@ from pretty_tables import PrettyTables
 
 
 # app specific constants
-__version__ = (0, 1, 7)
+__version__ = (0, 1, 8)
 __app__ = "tl"
 
 # regular constants
