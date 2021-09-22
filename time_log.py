@@ -266,8 +266,8 @@ WARNING: This tool is just a prototype of a rapid development process. The final
     parser.add_argument(
         "-t",
         "--tags",
-        nargs="+",
-        default="default",
+        nargs="?",
+        default=["default"],
     )
 
     parser.add_argument(
