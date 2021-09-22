@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "time_log"
-version = "0.1.6"
+version = "0.1.7"
 description = "Prototype for a time tracker/logger command line utility"
 authors = ["Max Resing <max.resing@protonmail.com>"]
 maintainers = ["Max Resing <max.resing@protonmail.com>"]
