@@ -267,7 +267,7 @@ WARNING: This tool is just a prototype of a rapid development process. The final
         "-t",
         "--tags",
         nargs="+",
-        default=[],
+        default="default",
     )
 
     parser.add_argument(
@@ -495,9 +495,10 @@ def main():
         cmd = args.cmd[0]
         
         # Parse tags:
-        tags = {'default'} if args.tags is None else set(args.tags[0].split(','))
+        tags = args.tags.split(',')
 
         if cmd == "add":
+            # prepare datetime stamps for _from and _to
             _from = datetime.combine(workdate, args._from)
             _to = datetime.combine(workdate, args._to)
 
