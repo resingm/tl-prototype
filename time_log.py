@@ -267,7 +267,7 @@ WARNING: This tool is just a prototype of a rapid development process. The final
         "-t",
         "--tags",
         nargs="?",
-        default=["default"],
+        default="default",
     )
 
     parser.add_argument(
@@ -493,7 +493,7 @@ def main():
 
     try:
         cmd = args.cmd[0]
-        
+
         # Parse tags:
         tags = args.tags.split(',')
 
