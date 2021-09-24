@@ -495,7 +495,7 @@ def main():
         cmd = args.cmd[0]
 
         # Parse tags:
-        tags = args.tags.split(',')
+        tags = set(args.tags.split(','))
 
         if cmd == "add":
             # prepare datetime stamps for _from and _to
