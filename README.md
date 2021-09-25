@@ -51,6 +51,17 @@ flags `--from` and `--to` define the timestamp when the activity has started and
 end. The format is `HH[:MM[:SS]]`. The minutes and seconds are optional.
 
 
+**Display records & statistics:**
+
+It's as simple as that:
+
+```
+tl stats -d 1991-08-25
+```
+
+This displays a summary of the worked hours for the given workdate.
+
+
 ## Install
 
 The project is available on pip:
@@ -91,4 +102,14 @@ git repository with a README explaining what the repository is about. Then you
 can configure the repositories folder or one of it's subfolders as the database.
 Further you can enable git, to automatically pull & push before and after each
 change of recordings.
+
+
+## TODOs
+
+There are still a few features I'd like to see in the software:
+
+[ ] Detailed start/end times of records per day
+[ ] Statistics for a week, month, year
+[ ] Show start date of currently active recording
+[ ] Make log level configurable
 
