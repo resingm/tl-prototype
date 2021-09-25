@@ -432,6 +432,8 @@ def main():
 
     argp = build_parser()
     args = argp.parse_args()
+    
+    # TODO: Add verbose output flag, remove logging
 
     lvl = logging.DEBUG
 
@@ -511,10 +513,6 @@ def main():
         elif cmd == "restart":
             recs.restart_rec()
         elif cmd == "start":
-            #if not args.tags:
-            #    tags = {'default'}
-            #else:
-            #    tags = set(args.tags[0].split(','))
             recs.start_rec(tags)
         elif cmd == "stats":
             # TODO: Add more options, e.g:
