@@ -10,7 +10,9 @@ database in sync over multiple devices. `tl` creates a new file for each day of
 recordings. This ensures fast read and write access even if the software is used
 over years and consists of tens of thousands of entries.
 
+
 ## Usage
+
 
 **Start a recording:**
 
@@ -70,6 +72,7 @@ The project is available on pip:
 pip install time-log
 ```
 
+
 ## Configuration
 
 After the installation, you are required to configure the software. You are
@@ -93,6 +96,7 @@ enabled = false
 /etc/tl.toml
 ./config.toml
 ```
+
 
 ### Backup & Synchronization
 
